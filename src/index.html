@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= htmlWebpackPlugin.options.title %>
+    </title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#667eea"/>
+</head>
+
+<body>
+    <header role="banner">
+        <a href="#main-content" class="skip-link">Lewati ke Konten Utama</a>
+        <div class="header-title-group">
+            <h1>Dicoding Story App</h1>
+            <p>Bagikan cerita inspiratif Anda bersama komunitas Dicoding</p>
+        </div>
+        <nav role="navigation" aria-label="Navigasi Utama">
+            <button class="nav-btn" id="home-btn">🏠 Beranda</button>
+            <button class="nav-btn" id="add-story-btn">➕ Tambah Story</button>
+            <button class="nav-btn" id="login-btn">🔐 Login</button>
+        </nav>
+    </header>
+
+    <main id="main-content" role="main" tabindex="-1">
+    </main>
+
+    <footer role="contentinfo">
+        <p>&copy; <span id="current-year"></span> Dicoding Story App - Nama Kamu</p>
+    </footer>
+
+</body>
+
+</html>

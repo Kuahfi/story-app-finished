@@ -16,7 +16,7 @@ export default class HtmlTemplates {
         `;
     }
 
-    static storyCard(story) {
+    static storyCard(story, { isSavedPage = false } = {}) {
         if (!story || !story.createdAt || !story.photoUrl || !story.name) {
             console.warn("Data story tidak lengkap:", story);
             return '<article class="story-card story-card--error"><p>Data cerita tidak lengkap.</p></article>';
@@ -24,8 +24,12 @@ export default class HtmlTemplates {
         const date = new Date(story.createdAt).toLocaleDateString('id-ID', {
             year: 'numeric', month: 'long', day: 'numeric'
         });
-        // Pastikan alt text selalu ada dan bermakna
         const altText = story.description ? `Foto cerita ${story.name}: ${story.description.substring(0, 50)}...` : `Foto cerita dari ${story.name}`;
+        
+        // Logika untuk tombol Simpan atau Hapus
+        const actionButton = isSavedPage
+            ? `<button type="button" class="btn btn-delete" data-story-id="${story.id}" aria-label="Hapus cerita ${story.name}">🗑️ Hapus</button>`
+            : `<button type="button" class="btn btn-save" data-story-id="${story.id}" aria-label="Simpan cerita ${story.name}">💾 Simpan Offline</button>`;
 
         return `
             <article class="story-card">
@@ -37,10 +41,26 @@ export default class HtmlTemplates {
                     ${story.lat && story.lon ?
                         `<div class="story-location">📍 ${parseFloat(story.lat).toFixed(4)}, ${parseFloat(story.lon).toFixed(4)}</div>` : ''
                     }
+                    ${actionButton}
                 </div>
             </article>
         `;
     }
+
+    static savedStories(stories) {
+        const storiesHtml = stories.length > 0
+            ? stories.map(story => this.storyCard(story, { isSavedPage: true })).join('') // Tandai ini halaman 'saved'
+            : '<div class="loading">Belum ada cerita yang Anda simpan.</div>';
+
+        return `
+            <section class="page-section" id="saved-stories-page">
+                <h2>💾 Cerita Tersimpan</h2>
+                <p>Cerita yang Anda simpan untuk dibaca saat offline.</p>
+                <div class="story-grid">${storiesHtml}</div>
+            </section>
+        `;
+    }
+
 
     static addStory() {
         return `

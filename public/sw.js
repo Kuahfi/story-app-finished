@@ -1,8 +1,8 @@
-// public/sw.js
-const CACHE_NAME = 'story-app-v1';
+// public/sw.js (Versi Debugging)
+const CACHE_NAME = 'story-app-v3'; // Naikkan versi cache untuk memicu update
 const URLS_TO_CACHE_ON_INSTALL = [
-  '/', 
-  '/index.html', 
+  '/',
+  '/index.html',
 ];
 
 self.addEventListener('install', (event) => {
@@ -21,7 +21,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
+          if (cacheName !== CACHE_NAME && cacheName.startsWith('story-app')) {
             console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
@@ -35,36 +35,74 @@ self.addEventListener('fetch', (event) => {
     if (event.request.method !== 'GET' || event.request.url.startsWith('chrome-extension://')) {
         return;
     }
-
     event.respondWith(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.match(event.request).then((cachedResponse) => {
                 const fetchPromise = fetch(event.request).then((networkResponse) => {
-                    // Jika response valid, simpan ke cache
                     if (networkResponse && networkResponse.ok) {
                         cache.put(event.request, networkResponse.clone());
                     }
                     return networkResponse;
                 }).catch(error => {
-                    // Jika network gagal, console log error
                     console.error('[SW] Network fetch failed:', error);
-                    // Jika ada di cache, cachedResponse akan digunakan
                 });
-
-                // Return data dari cache jika ada, sambil tetap fetch ke network (stale-while-revalidate)
                 return cachedResponse || fetchPromise;
             });
         })
     );
 });
 
-// Di dalam public/sw.js
 self.addEventListener('push', (event) => {
-  const title = 'Notifikasi Baru dari Story App';
-  const options = {
-    body: event.data.text() || 'Ada cerita baru yang menarik untukmu!',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-192x192.png',
+  console.log('[SW-DEBUG] ==> PUSH EVENT HANDLER STARTED.');
+
+  let notificationData = {
+    title: 'Notifikasi Baru (Default)',
+    options: {
+      body: 'Ini adalah notifikasi tes manual.',
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-192x192.png'
+    }
   };
-  event.waitUntil(self.registration.showNotification(title, options));
+
+  try {
+    if (event.data) {
+        console.log('[SW-DEBUG] Event has data. Trying to parse JSON.');
+        const payload = event.data.json();
+        notificationData.title = payload.title;
+        notificationData.options = payload.options;
+        notificationData.options.icon = notificationData.options.icon || '/icons/icon-192x192.png';
+        notificationData.options.badge = notificationData.options.badge || '/icons/icon-192x192.png';
+        console.log('[SW-DEBUG] JSON parsed successfully.');
+    } else {
+        console.log('[SW-DEBUG] Event has no data. Using default notification.');
+    }
+  } catch (e) {
+    console.error('[SW-DEBUG] Error parsing JSON, using default notification.', e);
+  }
+
+  const title = notificationData.title;
+  const options = notificationData.options;
+
+  console.log('[SW-DEBUG] Preparing to show notification with title:', title);
+
+  // Ini bagian paling penting. Kita akan lihat apakah promise ini rejected.
+  const notificationPromise = self.registration.showNotification(title, options);
+  
+  event.waitUntil(
+    notificationPromise
+      .then(() => {
+        console.log('[SW-DEBUG] ==> showNotification() promise was resolved. Notification should have been shown.');
+      })
+      .catch((err) => {
+        console.error('[SW-DEBUG] ==> showNotification() promise was REJECTED. THIS IS THE ERROR:', err);
+      })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] Notification click received.');
+  event.notification.close();
+  event.waitUntil(
+    clients.openWindow(self.location.origin)
+  );
 });

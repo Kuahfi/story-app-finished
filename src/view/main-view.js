@@ -8,6 +8,7 @@ export default class MainView {
         this.navButtons = {
             home: document.getElementById('home-btn'),
             addStory: document.getElementById('add-story-btn'),
+            saved: document.getElementById('saved-btn'),
         };
         this.skipLink = document.querySelector('.skip-link');
 
@@ -28,7 +29,7 @@ export default class MainView {
             this.skipLink.addEventListener("click", (event) => {
                 event.preventDefault();
                 this.skipLink.blur();
-                this.mainContentElement.focus(); 
+                this.mainContentElement.focus();
             });
         }
     }
@@ -43,6 +44,7 @@ export default class MainView {
     bindNavigate(handler) { // handler akan => presenter.navigateTo(route)
         this.navButtons.home?.addEventListener('click', () => handler('home'));
         this.navButtons.addStory?.addEventListener('click', () => handler('add-story'));
+        this.navButtons.saved?.addEventListener('click', () => handler('saved'));
     }
 
     bindHashChange(handler) { // handler akan => presenter.handleHashChange(newHash)
@@ -56,6 +58,8 @@ export default class MainView {
     bindRegisterSubmit(handler) { this._registerSubmitHandler = handler; }
     bindShowRegisterForm(handler) { this._showRegisterFormHandler = handler; }
     bindAddStorySubmit(handler) { this._addStorySubmitHandler = handler; }
+    bindSaveStory(handler) { this._saveStoryHandler = handler; }
+    bindDeleteStory(handler) { this._deleteStoryHandler = handler; }
     bindCameraActions(handlers) { this._cameraHandlers = handlers; }
     bindLocationActions(handlers) { this._locationHandlers = handlers; }
 
@@ -81,7 +85,42 @@ export default class MainView {
     }
 
     renderHomePage(stories, initMapCallback) {
-        this._displayPage(HtmlTemplates.home(stories), initMapCallback);
+        this._displayPage(HtmlTemplates.home(stories), () => {
+            if (initMapCallback) initMapCallback();
+
+            // TAMBAHKAN LOGIKA UNTUK EVENT LISTENER TOMBOL HAPUS
+            this.mainContentElement.querySelectorAll('.btn-delete').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const storyId = event.target.dataset.storyId;
+                    if (this._deleteStoryHandler && confirm('Apakah Anda yakin ingin menghapus cerita ini dari data tersimpan?')) {
+                        this._deleteStoryHandler(storyId);
+                    }
+                });
+            });
+
+            this.mainContentElement.querySelectorAll('.btn-save').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const storyId = event.target.dataset.storyId;
+                    if (this._saveStoryHandler) {
+                        this._saveStoryHandler(storyId);
+                    }
+                });
+            });
+        });
+    }
+
+    renderSavedStoriesPage(stories) {
+        this._displayPage(HtmlTemplates.savedStories(stories), () => {
+            // Event listener untuk tombol HAPUS
+            this.mainContentElement.querySelectorAll('.btn-delete').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const storyId = event.target.dataset.storyId;
+                    if (this._deleteStoryHandler && confirm('Apakah Anda yakin ingin menghapus cerita ini?')) {
+                        this._deleteStoryHandler(storyId);
+                    }
+                });
+            });
+        });
     }
 
     renderAddStoryPage(initLocationMapCallback) {
@@ -142,7 +181,7 @@ export default class MainView {
     // --- Metode untuk Update UI Spesifik ---
     updateLoginButtonText(isLoggedIn, userName, loginClickHandler, logoutClickHandler) {
         if (!this.loginBtnElement) return;
-        
+
         const newLoginBtn = this.loginBtnElement.cloneNode(true);
         this.loginBtnElement.parentNode.replaceChild(newLoginBtn, this.loginBtnElement);
         this.loginBtnElement = newLoginBtn; // Update referensi
@@ -159,7 +198,7 @@ export default class MainView {
     updateActiveNavButton(currentRoute) {
         // Nonaktifkan semua tombol navigasi utama
         Object.values(this.navButtons).forEach(btn => btn?.classList.remove('active'));
-        
+
         if (this.loginBtnElement) {
             if (currentRoute === 'login' /* && !isUserLoggedIn (cek ini di Presenter) */) {
                 this.loginBtnElement.classList.add('active');
@@ -183,11 +222,11 @@ export default class MainView {
         messageDiv.textContent = message;
         messageDiv.setAttribute('role', 'alert');
         messageDiv.setAttribute('aria-live', 'polite');
-        
+
         this.mainContentElement.insertBefore(messageDiv, this.mainContentElement.firstChild);
         setTimeout(() => messageDiv.remove(), 5000);
     }
-    
+
     // -- Metode Update UI untuk Form Add Story --
     updatePhotoPreview(src, hide) {
         const el = document.getElementById('photo-preview');
@@ -203,7 +242,7 @@ export default class MainView {
         document.getElementById('camera-feed')?.classList.toggle('hidden', !showVideo);
         document.getElementById('camera-controls')?.classList.toggle('hidden', !showControls);
     }
-    
+
     resetPhotoInput() {
         const photoInput = document.getElementById('photo-input');
         if (photoInput) photoInput.value = null; // Reset input file
@@ -243,15 +282,15 @@ export default class MainView {
     getCameraFeedElement() { return document.getElementById('camera-feed'); }
     getPhotoCanvasElement() { return document.getElementById('photo-canvas'); }
     getAddStoryFormElement() { return document.getElementById('add-story-form'); } // Untuk Presenter reset via View
-    getLoginSubmitButton() { return document.getElementById('login-form')?.querySelector('button[type="submit"]');}
-    getRegisterSubmitButton() { return document.getElementById('register-form')?.querySelector('button[type="submit"]');}
-    getAddStorySubmitButton() { return document.getElementById('add-story-form')?.querySelector('button[type="submit"]');}
+    getLoginSubmitButton() { return document.getElementById('login-form')?.querySelector('button[type="submit"]'); }
+    getRegisterSubmitButton() { return document.getElementById('register-form')?.querySelector('button[type="submit"]'); }
+    getAddStorySubmitButton() { return document.getElementById('add-story-form')?.querySelector('button[type="submit"]'); }
 
-    disableSubmitButton(button, text = 'Memproses...') { 
-        if(button){ button.disabled = true; button.textContent = text;}
+    disableSubmitButton(button, text = 'Memproses...') {
+        if (button) { button.disabled = true; button.textContent = text; }
     }
-    enableSubmitButton(button, originalText) { 
-        if(button){button.disabled = false; button.textContent = originalText;}
+    enableSubmitButton(button, originalText) {
+        if (button) { button.disabled = false; button.textContent = originalText; }
     }
 
     // Untuk Presenter mengecek apakah elemen map sudah ada di DOM sebelum init Leaflet

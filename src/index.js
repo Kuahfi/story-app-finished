@@ -23,12 +23,11 @@ function main() {
 }
 
 // Pastikan DOM sudah siap sebelum menjalankan fungsi main
-if (document.readyState === 'loading') { // Biasanya tidak perlu jika script di akhir body
+if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', main);
 } else {
-    main(); // Langsung jalankan jika DOM sudah siap
+    main();
 }
-
 
 // 5. Registrasi Service Worker
 if ('serviceWorker' in navigator) {
@@ -45,36 +44,5 @@ if ('serviceWorker' in navigator) {
     console.log('Service Worker tidak didukung di browser ini.');
 }
 
-async function requestNotificationPermission() {
-  if ('Notification' in window && 'PushManager' in window) {
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      console.log('Izin notifikasi diberikan.');
-      await subscribeToPushManager();
-    }
-  }
-}
-
-async function subscribeToPushManager() {
-  const VAPID_PUBLIC_KEY = 'BCCs2eonMI-6H2ctvFaWg-UYdDv387Vno_bzUzALpB442r2lCnsHmtrx8biyPi_E-1fSGABK_Qs_GlvPoJJqxbk'; // <-- Ganti ini!
-
-  function urlBase64ToUint8Array(base64String) {
-      
-  }
-
-  const registration = await navigator.serviceWorker.ready;
-  try {
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
-    });
-    console.log('Berhasil subscribe:', JSON.stringify(subscription));
-    // Kirim object subscription ini ke server Anda jika diperlukan
-  } catch (err) {
-    console.error('Gagal subscribe:', err);
-  }
-}
-
-window.addEventListener('load', () => {
-    requestNotificationPermission();
-});
+// Logika untuk meminta izin notifikasi dan subscribe sekarang ditangani di dalam AppPresenter.
+// Tidak ada lagi kode notifikasi di sini untuk menjaga kebersihan arsitektur.

@@ -8,7 +8,7 @@ class ApiServiceInternal {
     }
 
     async _fetchWithAuth(url, options = {}) {
-        const token = sessionStorage.getItem('token'); // Ambil token langsung dari session storage
+        const token = sessionStorage.getItem('token');
         const headers = { ...options.headers };
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
@@ -20,9 +20,12 @@ class ApiServiceInternal {
         }
         return response.json();
     }
-    
+
     async _fetchWithoutAuth(url, options = {}) {
-        const response = await fetch(url, options);
+        const response = await fetch(url, {
+            ...options,
+            headers: { 'Content-Type': 'application/json', ...options.headers },
+        });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ message: `HTTP error! status: ${response.status} - ${response.statusText}` }));
             throw new Error(errorData.message || 'Request API gagal');
@@ -34,7 +37,6 @@ class ApiServiceInternal {
     register(name, email, password) {
         return this._fetchWithoutAuth(`${this.baseUrl}/register`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email, password }),
         });
     }
@@ -42,22 +44,41 @@ class ApiServiceInternal {
     login(email, password) {
         return this._fetchWithoutAuth(`${this.baseUrl}/login`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),
         });
     }
 
     getStories() {
-        // getStories memerlukan token, jadi pakai _fetchWithAuth
         return this._fetchWithAuth(`${this.baseUrl}/stories?location=1&size=20&page=1`);
     }
 
     addStory(formData) {
-        // addStory memerlukan token
         return this._fetchWithAuth(`${this.baseUrl}/stories`, {
             method: 'POST',
-            // FormData tidak perlu Content-Type, browser yg atur
             body: formData,
+        });
+    }
+
+    // --- FUNGSI BARU UNTUK PUSH NOTIFICATION ---
+    subscribe(subscription) {
+        const { endpoint, keys: { p256dh, auth } } = subscription.toJSON();
+        return this._fetchWithAuth(`${this.baseUrl}/notifications/subscribe`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ endpoint, keys: { p256dh, auth } }),
+        });
+    }
+
+    unsubscribe(subscription) {
+        const { endpoint } = subscription;
+        return this._fetchWithAuth(`${this.baseUrl}/notifications/subscribe`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ endpoint }),
         });
     }
 }
@@ -65,11 +86,11 @@ class ApiServiceInternal {
 
 export default class StoryAppModel {
     constructor() {
-        this.api = new ApiServiceInternal(); // Internal API service
+        this.api = new ApiServiceInternal();
         this.token = sessionStorage.getItem('token') || null;
         this.user = JSON.parse(sessionStorage.getItem('user') || 'null');
         this.stories = [];
-        this.currentRoute = 'home'; // Default route
+        this.currentRoute = 'home';
     }
 
     // --- Metode untuk State Management ---
@@ -104,46 +125,42 @@ export default class StoryAppModel {
     }
 
     getStoriesFromState() {
-        return [...this.stories]; // Kembalikan salinan agar tidak dimutasi dari luar
+        return [...this.stories];
     }
 
     // --- Metode untuk Data & API ---
     async performLogin(email, password) {
         const response = await this.api.login(email, password);
         if (response.error) throw new Error(response.message || 'Login gagal dari API');
-        return response.loginResult; // Kembalikan loginResult ke Presenter
+        return response.loginResult;
     }
 
     async performRegister(name, email, password) {
         const response = await this.api.register(name, email, password);
         if (response.error) throw new Error(response.message || 'Registrasi gagal dari API');
-        return response; // Kembalikan seluruh response ke Presenter
+        return response;
     }
 
     async fetchStoriesFromServer() {
-        if (!this.isUserLoggedIn()) { // Hanya fetch jika login
+        if (!this.isUserLoggedIn()) {
             this.stories = [];
-            // console.log("Model: Tidak login, stories dikosongkan.");
             return;
         }
         try {
-            const response = await this.api.getStories(); // ApiServiceInternal akan handle token
+            const response = await this.api.getStories();
             if (!response.error || (response.error && response.message === "Stories not found")) {
                 this.stories = response.listStory || [];
-                await StoryDb.putAllStories(this.stories);
             } else {
                 this.stories = [];
                 throw new Error(response.message || 'Gagal memuat cerita dari API (Model)');
             }
         } catch (error) {
-            this.stories = []; // Kosongkan jika error
-            // console.error("Model: Error fetching stories:", error);
-            throw error; // Lempar error ke Presenter
+            this.stories = [];
+            throw error;
         }
     }
 
     async addNewStoryToServer(description, photoFile, locationData) {
-        // Token akan dihandle oleh ApiServiceInternal
         const formData = new FormData();
         formData.append('description', description);
         formData.append('photo', photoFile);
@@ -153,7 +170,30 @@ export default class StoryAppModel {
         }
         const response = await this.api.addStory(formData);
         if (response.error) throw new Error(response.message || 'Gagal tambah story dari API (Model)');
-        // Setelah berhasil, Presenter akan panggil fetchStoriesFromServer lagi untuk update list
         return response;
+    }
+
+    // --- METODE BARU UNTUK PUSH NOTIFICATION ---
+    async subscribeToPush(subscription) {
+        try {
+            const response = await this.api.subscribe(subscription);
+            if (response.error) throw new Error(response.message);
+            console.log('Model: Berhasil subscribe notifikasi.');
+            return response;
+        } catch (error) {
+            console.error('Model: Gagal subscribe notifikasi:', error);
+            throw error;
+        }
+    }
+
+    async unsubscribeFromPush(subscription) {
+        try {
+            const response = await this.api.unsubscribe(subscription);
+            if (response.error) throw new Error(response.message);
+            console.log('Model: Berhasil unsubscribe notifikasi.');
+            return response;
+        } catch (error) {
+            console.error('Model: Gagal unsubscribe notifikasi:', error);
+        }
     }
 }
